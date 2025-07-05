@@ -1,4 +1,7 @@
 HELP.md
+# Environment variables (If any)
+.env
+
 # Maven
 target/
 .mvn
