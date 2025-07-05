@@ -1,8 +1,24 @@
 HELP.md
+# Maven
 target/
-.mvn/wrapper/maven-wrapper.jar
+.mvn
+!.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+
+# Logs
+logs/
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Dependency directories
+node_modules/
+lib/
+*.jar
+*.war
 
 ### STS ###
 .apt_generated
