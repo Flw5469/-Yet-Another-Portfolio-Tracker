@@ -1,0 +1,4 @@
+				crypto/stock	rate		
+https://alpaca.markets/		stock		200 per min	
+binance				crypto		6,000 request weight per minute
+yahoo finance			stock		360 per hour

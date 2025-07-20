@@ -1,4 +1,4 @@
-package com.flw5469.portfolio_tracker.price_retrival;
+package com.flw5469.portfolio_tracker.price_retrival.current_price;
 
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import org.springframework.web.socket.WebSocketSession;
@@ -6,6 +6,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.client.WebSocketConnectionManager;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -16,7 +17,10 @@ import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,27 +29,8 @@ import org.slf4j.LoggerFactory;
 @Slf4j
 public class PriceWebSocketHandler extends TextWebSocketHandler {
     
-
-    private void printPayloadSymbol(String payload) {
-
-        log.info("print symbol:\n");
-        // log.info(payload);
-        String pattern = "\"s\":\"";
-        
-        for (int i = 0; i <= payload.length() - pattern.length(); i++) {
-            if (payload.startsWith(pattern, i)) {
-                // Found the pattern, now find the symbol
-                int startIndex = i + pattern.length();
-                int endIndex = payload.indexOf("\"", startIndex);
-                
-                if (endIndex != -1) {
-                    String symbol = payload.substring(startIndex, endIndex);
-                    log.info(symbol);
-                }
-            }
-        }
-    }
-
+    @Autowired
+    public RealTimePriceStorage realTimePriceStorage;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -74,7 +59,9 @@ public class PriceWebSocketHandler extends TextWebSocketHandler {
         // Just log the received data for now
         //log.info("Received price data: {}", payload);
         log.info("The data size: {}", payload.length());
-        // printPayloadSymbol(payload);
+        realTimePriceStorage.updateWholeMapByPayload(payload);
+
+
         // // Parse and extract price if needed
         // try {
         //     ObjectMapper mapper = new ObjectMapper();

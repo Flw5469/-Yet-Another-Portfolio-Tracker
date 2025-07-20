@@ -1,0 +1,13 @@
+19/7
+accidentally added this into dependency, causing there having extra test case without proper package, causing stub to be not realized and throw error
+    <dependency>
+        <groupId>org.mockito</groupId>
+        <artifactId>mockito-junit-jupiter</artifactId>
+        <version>4.0.0</version>
+        <scope>test</scope>
+    </dependency>
+
+
+20/7
+lambda capture by reference
+-> when submitting a lambda to a threadpool, lambda capture the REFERENCE but not executed. so when I submit ()->{array.clone()}, it is not cloned immediately. 

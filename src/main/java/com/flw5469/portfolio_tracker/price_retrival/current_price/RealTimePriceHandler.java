@@ -1,6 +1,7 @@
-package com.flw5469.portfolio_tracker.price_retrival;
+package com.flw5469.portfolio_tracker.price_retrival.current_price;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.socket.client.WebSocketClient;
@@ -22,18 +23,30 @@ import org.slf4j.LoggerFactory;
 
 @Service
 @Slf4j
-public class RealTimePrice {
+@ConditionalOnProperty(
+    name = "crypto.price-service.enabled", 
+    havingValue = "true", 
+    matchIfMissing = false
+)
+public class RealTimePriceHandler {
+
+    private final CurrentPriceGetter currentPriceGetter;
     
     private final WebSocketConnectionManager connectionManager;
 
-    public RealTimePrice(PriceWebSocketHandler webSocketHandler) {
+    public RealTimePriceHandler(PriceWebSocketHandler webSocketHandler, RealTimePriceStorage realTimePriceStorage,
+     CurrentPriceGetter currentPriceGetter) {
+     
+        String[][] allPrices = currentPriceGetter.getAllPricesAsArray();
+        realTimePriceStorage.populateMap(allPrices);
 
         // Binance WebSocket URL
         //"wss://stream.binance.com:9443/ws/btcusdt@ticker";
-        String wsUrl = "wss://fstream.binance.com/ws/miniTicker@arr";//"wss://stream.binance.com:9443/ws/";
-        
+        //"wss://stream.binance.com:9443/ws/";
+        String wsUrl = "wss://stream.binance.com:9443/ws/!miniTicker@arr"; // Spot WebSocket
         WebSocketClient client = new StandardWebSocketClient();
         this.connectionManager = new WebSocketConnectionManager(client, webSocketHandler, wsUrl);
+        this.currentPriceGetter = currentPriceGetter;
     }
     
     @PostConstruct

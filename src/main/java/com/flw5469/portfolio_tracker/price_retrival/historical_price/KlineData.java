@@ -1,4 +1,4 @@
-package com.flw5469.portfolio_tracker.price_retrival;
+package com.flw5469.portfolio_tracker.price_retrival.historical_price;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -12,6 +12,7 @@ import java.time.ZoneId;
 @NoArgsConstructor
 @AllArgsConstructor
 public class KlineData {
+    private String symbol;
     private long openTime;
     private String openPrice;
     private String highPrice;
@@ -27,6 +28,10 @@ public class KlineData {
     // Convenience methods for working with crypto data
     public LocalDateTime getOpenDateTime() {
         return LocalDateTime.ofInstant(Instant.ofEpochMilli(openTime), ZoneId.systemDefault());
+    }
+
+    public LocalDateTime getCloseDateTime() {
+        return LocalDateTime.ofInstant(Instant.ofEpochMilli(closeTime), ZoneId.systemDefault());
     }
     
     public BigDecimal getOpenPriceDecimal() {
