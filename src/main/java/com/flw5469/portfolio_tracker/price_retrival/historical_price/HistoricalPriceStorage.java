@@ -115,34 +115,38 @@ public class HistoricalPriceStorage {
         }
     }
 
-    public Stream<Pair<Double, Long>> getTimedPriceStream(long startingTime, long endingTime, String symbol, String interval){
-        try {
-            
-            String sql = String.join(
-            "SELECT time_bucket(?) as bucket, symbol, first(price, time)",
-            "FROM crypto_prices",
-            "WHERE timestamp >= ? AND timestamp <= ?\n" + //
-                            "    GROUP BY bucket \n" + //
-                            "    ORDER BY bucket"
-            );
+public Stream<Pair<Double, Long>> getTimedPriceStream(long startingTime, long endingTime, String symbol, String interval) {
+    try {
+        // Build SQL with interval as literal, not parameter
+        String sql = String.format(
+            "SELECT time_bucket('%s', time) as bucket, symbol, first(price, time) as price " +
+            "FROM crypto_prices " + 
+            "WHERE time >= to_timestamp(?) AND time <= to_timestamp(?) AND symbol = '%s' " +
+            "GROUP BY bucket, symbol " +
+            "ORDER BY bucket",
+            interval,  // Insert interval directly into SQL
+            symbol
+        );
 
-            return jdbcTemplate.queryForStream(
-                sql,
-                (rs, rowNum) -> Pair.of(
-                    rs.getDouble("price"),
-                    rs.getTimestamp("time").getTime()  // converts to milliseconds
-                ),
-                interval, startingTime, endingTime
-            );
+        logger.info("SQL Template: {}", sql);
+        logger.info("Parameters: startTime={}, endTime={}, symbol='{}'", 
+                    startingTime , endingTime, symbol);
 
+        return jdbcTemplate.queryForStream(
+            sql,
+            (rs, rowNum) -> Pair.of(
+                rs.getDouble("price"),
+                rs.getTimestamp("bucket").getTime()
+            ),
+            startingTime,      // Only 3 parameters now
+            endingTime
+        );
 
-
-
-        } catch (Exception e) {
-            logger.error("Failed to retrieve price : {}", e.getMessage());
-            return null; 
-        }
+    } catch (Exception e) {
+        logger.error("Failed to retrieve price stream for symbol {}: {}", symbol, e.getMessage());
+        return Stream.empty();
     }
+}
 
 
     // Remove the separate priceExists() method - it's redundant!

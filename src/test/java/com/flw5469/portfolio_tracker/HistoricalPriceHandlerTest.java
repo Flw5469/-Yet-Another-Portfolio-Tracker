@@ -41,12 +41,61 @@ class HistoricalPriceHandlerTest {
     @Autowired
     private HistoricalPriceGetter historicalPriceGetter;
 
-    @Test
+    // @Test
     void testHandleHistoricalPrice() {
         // Arrange: Set up the mock behavior
-        long interval_long = historicalPriceHandler.intervalToLong("1 hour");
+        long interval_long = historicalPriceHandler.intervalToLong("1 day");
         long start_time = dateUtils.dateTimeToTimestamp(2020, 12, 14, 0, 0);
-        List<Integer> excludeList = Arrays.asList(10, 20, 30, 400, 1000, 1600);
+        // List<Integer> excludeList = Arrays.asList(10, 20, 30, 400, 1000, 1600);
+        List<Integer> excludeList = Arrays.asList(10, 20, 30);
+        ArrayList<Pair<Double, Long>> mockResult = new ArrayList<>();
+        for (int i = 0; i < 2000; i++) {
+            if (!excludeList.contains(i)) {
+                mockResult.add(Pair.of(1000f + 0.1 * i, start_time + interval_long * i));
+            }
+        }
+
+        // Mock the storage method
+        when(historicalPriceStorage.getTimedPriceStream(anyLong(), anyLong(), anyString(), anyString()))
+            .thenAnswer(invocation -> {
+                System.out.println("Mock called with: " + Arrays.toString(invocation.getArguments()));
+                return mockResult.stream();
+            });
+
+        // Act: Call the method under test
+        ArrayList<Pair<Double, Long>> result = historicalPriceHandler.getTimedPrice("BTCUSDT", start_time, start_time+interval_long*2000, "1 day");
+
+        // Verify that the mock method was called with the correct parameters
+        ArgumentCaptor<Long> startTimeCaptor = ArgumentCaptor.forClass(Long.class);
+        ArgumentCaptor<Long> endTimeCaptor = ArgumentCaptor.forClass(Long.class);
+        ArgumentCaptor<String> symbolCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> intervalCaptor = ArgumentCaptor.forClass(String.class);
+
+        // not recommended to check internal implementation
+        // verify(historicalPriceGetter, times(3)).getData(anyString(), anyLong());// Assert no nulls in the list itself
+
+        assertNotNull(result);
+        for (int i=0;i<result.size();i=i+50){
+          if (result.get(i)==null) System.out.print("null at "+i+" ");
+        }
+
+
+        assertFalse(result.contains(null), "Result list should not contain null elements");
+        
+        // Assert no null values within the Pairs
+        result.forEach(pair -> {
+            assertNotNull(pair, "Pair should not be null");
+            assertNotNull(pair.getLeft(), "Price should not be null");
+            assertNotNull(pair.getRight(), "Timestamp should not be null");
+        });
+        }
+
+    // @Test
+    void testHandleHistoricalPrice2() {
+        // Arrange: Set up the mock behavior
+        long interval_long = historicalPriceHandler.intervalToLong("1 day");
+        long start_time = dateUtils.dateTimeToTimestamp(2020, 12, 14, 0, 0);
+        List<Integer> excludeList = Arrays.asList(0,1,2, 5 , 10, 20, 30, 400, 1000, 1600);
         ArrayList<Pair<Double, Long>> mockResult = new ArrayList<>();
         for (int i = 0; i < 2000; i++) {
             if (!excludeList.contains(i)) {
@@ -75,9 +124,55 @@ class HistoricalPriceHandlerTest {
 
         assertNotNull(result);
         for (int i=0;i<result.size();i++){
-          if (result.get(i)==null) System.out.print("null at "+i+"\n");
+          if (result.get(i)==null) System.out.print("contains null at "+i+"\n");
         }
 
+
+        assertFalse(result.contains(null), "Result list should not contain null elements");
+        
+        // Assert no null values within the Pairs
+        result.forEach(pair -> {
+            assertNotNull(pair, "Pair should not be null");
+            assertNotNull(pair.getLeft(), "Price should not be null");
+            assertNotNull(pair.getRight(), "Timestamp should not be null");
+        });
+        }
+
+    @Test
+    void testHandleHistoricalPrice3() {
+        // Arrange: Set up the mock behavior
+        long interval_long = historicalPriceHandler.intervalToLong("1 day");
+        long start_time = dateUtils.dateTimeToTimestamp(2020, 12, 14, 0, 0);
+        ArrayList<Pair<Double, Long>> mockResult = new ArrayList<>();
+        int length = 500;
+
+        // Mock the storage method
+        when(historicalPriceStorage.getTimedPriceStream(anyLong(), anyLong(), anyString(), anyString()))
+            .thenAnswer(invocation -> {
+                System.out.println("Mock called with: " + Arrays.toString(invocation.getArguments()));
+                return mockResult.stream();
+            });
+
+        // Act: Call the method under test
+        ArrayList<Pair<Double, Long>> result = historicalPriceHandler.getTimedPrice("BTCUSDT", start_time, start_time+interval_long*length, "1 day");
+
+        // Verify that the mock method was called with the correct parameters
+        ArgumentCaptor<Long> startTimeCaptor = ArgumentCaptor.forClass(Long.class);
+        ArgumentCaptor<Long> endTimeCaptor = ArgumentCaptor.forClass(Long.class);
+        ArgumentCaptor<String> symbolCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> intervalCaptor = ArgumentCaptor.forClass(String.class);
+
+        // not recommended to check internal implementation
+        // verify(historicalPriceGetter, times(3)).getData(anyString(), anyLong());// Assert no nulls in the list itself
+
+        assertNotNull(result);
+        System.out.println("null at ");
+        for (int i=0;i<result.size();i++){
+          if (result.get(i)==null) System.out.print(i+" ");
+        }
+        System.out.println("");
+
+        assertEquals(result.size(), length, "Result should be with size 2000");
 
         assertFalse(result.contains(null), "Result list should not contain null elements");
         

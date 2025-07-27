@@ -88,15 +88,16 @@ public class HistoricalPriceHandler {
      */   
     priceInDatabase.forEach(pair->{
 
-      //log.info("dealing with pair: ({} , {})", pair.getLeft(), pair.getRight());
+      log.info("dealing with pair: ({} , {})", pair.getLeft(), pair.getRight());
 
+      // skip those within the time distance
       if ((previousTime.get()==null) ||  (pair.getRight()-previousTime.get()) >= (timeRange - threshold)) {
 
         long timeDistance;
         if (previousTime.get()==null) {
-          timeDistance = 0;
+          timeDistance = pair.getRight() - (startTime - timeRange);
         } else {
-          timeDistance = pair.getRight()-previousTime.get();
+          timeDistance = pair.getRight() - previousTime.get();
         }
         
         // for each non-existing record, store the index in an array, 
@@ -108,8 +109,8 @@ public class HistoricalPriceHandler {
           priceList.add(null);
           
           // the empty record is more than what one api fetch can handle -> submit the index list, add current into list.
-          if (!indexList.isEmpty()) log.info("the future gap of index list and current is: {}", (priceList.size()-1) - indexList.getLast());
-          if (!indexList.isEmpty() && ((priceList.size()-1) - indexList.getLast() >= fetchRange)){
+          if (!indexList.isEmpty()) log.info("the future gap of index list and current is: {}", (priceList.size()-1) - indexList.getFirst());
+          if (!indexList.isEmpty() && ((priceList.size()-1) - indexList.getFirst() >= (fetchRange / (intervalToLong(interval) / intervalToLong("1 hour") )))){
             log.info("fetching {}", indexList.getLast());
             log.info("submitting: {}", indexList.toString());
             ArrayList<Integer> cloneArray = (ArrayList<Integer>)indexList.clone();
@@ -121,19 +122,52 @@ public class HistoricalPriceHandler {
         }
 
         previousTime.set(pair.getRight());
-      }
+      };
 
       // deal with existing record.
+      // log.info("adding existing record: {}", priceList.size());
       priceList.add(pair);
     });
 
-    if (!indexList.isEmpty()) {
-      log.info("fetching {}", indexList.getLast());
-      log.info("submitting: {}", indexList.toString());
 
-      ArrayList<Integer> cloneArray = (ArrayList<Integer>)indexList.clone();
-      futures.add(customThreadPool.submitTask(()->fetchAccordingToIndex(symbol, priceList, cloneArray , timeRange, startTime, threshold)));
+    
+    // after loop, add the undetected empty indices and submit them. need to handle the case where 1 api call is not enough
+    // eg [all], [100, 150000, 200000] (gap is too large)
+    if (previousTime.get() == null) {
+      for (int i=0;i<(endTime-startTime)/timeRange; i++){
+        indexList.add(i);
+        priceList.add(null);
+      }
+    } else {
+      if (previousTime.get()!=endTime) {
+        for (int i=(int) ((previousTime.get()-startTime)/timeRange);i<(endTime-startTime)/timeRange; i++){
+          indexList.add(i);
+          priceList.add(null);
+        }
+      }
     }
+
+    // handle the remaining indices
+    if (!indexList.isEmpty()) {
+      int lastUnsubmittedIndex = 0;
+      
+      for (int index:indexList){
+        if (index-indexList.get(lastUnsubmittedIndex) >= (fetchRange / (intervalToLong(interval) / intervalToLong("1 hour") ))) {
+          ArrayList<Integer> cloneArray = new ArrayList<>(indexList.subList(lastUnsubmittedIndex, index));
+          futures.add(customThreadPool.submitTask(()->fetchAccordingToIndex(symbol, priceList, cloneArray , timeRange, startTime, threshold)));
+          lastUnsubmittedIndex = index;
+          log.info("submitting: {}", cloneArray.toString());
+        }
+
+      }
+      
+      if (lastUnsubmittedIndex!=indexList.size()) {
+        ArrayList<Integer> cloneArray = new ArrayList<>(indexList.subList(lastUnsubmittedIndex, indexList.size()));
+        futures.add(customThreadPool.submitTask(()->fetchAccordingToIndex(symbol, priceList, cloneArray , timeRange, startTime, threshold)));
+      }
+   }
+
+
 
     System.out.println("Futures list size: " + futures.size());
     for (int i = 0; i < futures.size(); i++) {
@@ -148,7 +182,7 @@ public class HistoricalPriceHandler {
       allTasks.join();  // Blocks until all tasks are done
     }
 
-    System.out.println("All tasks completed!");
+    System.out.println("All tasks completed!, price list size: "+ priceList.size());
 
     return priceList;
 
@@ -173,27 +207,33 @@ public class HistoricalPriceHandler {
   input: indexList: a list of index that is the #element is smaller than how much 1 api call can give. 
   process: submit tasks to threadpool that calls api (api call so #threads can be larger), wait here and edit the priceList accordingly
   output: a future so caller can wait on it (in getTimedPrice caller wait on them after fetching of the existing priceList complete)
-   */
+  reminder: getData returns time in descending order, first one is the latest record. 
+  */
   private void fetchAccordingToIndex(String symbol, ArrayList<Pair<Double, Long>> priceList, ArrayList<Integer> indexList, long timeRange,long startTime, long threshold) {
     List<KlineData> result = historicalPriceGetter.getData(symbol, startTime+indexList.getFirst()*timeRange);
-    log.info("fetching data from time: {}",startTime+indexList.getFirst()*timeRange);
+    log.info("fetching data from time: {}, index: {}",startTime+indexList.getFirst()*timeRange,indexList.getFirst());
 
     int KlineIndex = 0;
     log.info("contains: {}", indexList.toString());
     for (Integer index : indexList) {
-        log.info("dealing with index: {}", index);
-        // sacrifice O(N) time in some cases to prevent accidentally skipping the whole array
-        if (KlineIndex > result.size()) {
-          KlineIndex = 0;
+        log.info("dealing with index: {}, start traversing at klineindex: {}", index, KlineIndex);
+
+        Boolean found = false;
+        while ((KlineIndex<result.size())&&(found == false)) {
+          // TODO: add the actual moving Klineindex multiple times per loop.
+          long timeRequired = startTime + index * timeRange;
+
+          long timeCurrentRecord = result.get(KlineIndex).getOpenTime();
+          log.info("the time distance = {}, time for record: {}, time expected: {}, index: {}", timeCurrentRecord - timeRequired, timeCurrentRecord, timeRequired, index);
+          if (Math.abs(timeCurrentRecord - timeRequired) < threshold) {
+            priceList.set(index, Pair.of(Double.parseDouble(result.get(KlineIndex).getOpenPrice()), timeCurrentRecord));
+            found = true;
+            log.info("setting for index: {}, price: {} , time: {}", index, result.get(KlineIndex).getOpenPrice(), timeCurrentRecord);
+          }
+          KlineIndex++;
         }
-        long timeRequired = startTime + index * timeRange;
-        long timeCurrentRecord = result.get(KlineIndex).getOpenTime();
-        log.info("the time distance = {}, time for record: {}, time expected: {}", timeCurrentRecord - timeRequired, timeCurrentRecord, timeRequired);
-        if (Math.abs(timeCurrentRecord - timeRequired) < threshold) {
-          priceList.set(index, Pair.of(Double.parseDouble(result.get(KlineIndex).getOpenPrice()), timeCurrentRecord));
-          log.info("setting for index: {}, price: {} , time: {}", index, result.get(KlineIndex).getOpenPrice(), timeCurrentRecord);
-        }
-        KlineIndex++;
+
+
     }
 
   }

@@ -27,6 +27,7 @@ public class CustomThreadPool {
     @PostConstruct
     public void initializeThreadPool() {
         int coreCount = Runtime.getRuntime().availableProcessors();
+        coreCount = 1;
         log.info("available cores: {}", coreCount);
         // For CPU-intensive tasks: cores or cores + 1
         int poolSize = coreCount;

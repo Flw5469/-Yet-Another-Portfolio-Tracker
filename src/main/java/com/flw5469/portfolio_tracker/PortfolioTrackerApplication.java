@@ -35,9 +35,10 @@ public class PortfolioTrackerApplication implements ApplicationRunner {
     public void run(ApplicationArguments args) throws Exception {
       long timeWanted = dateUtils.dateTimeToTimestamp(2024, 12, 14, 0, 0);
       long timeWantedOld = dateUtils.dateTimeToTimestamp(2024, 11, 14, 0, 0);
-      log.info("the calculation is: {}", criticalCalculationHandler.getPriceGap("ETHEUR", timeWanted, timeWantedOld));
+      // log.info("the calculation is: {}", criticalCalculationHandler.getPriceGap("ETHEUR", timeWanted, timeWantedOld));
       // log.info("The Timestamp's string is: {}",dateUtils.timestampToIsoString(timeWanted));
       // log.info("The retrieved result: {}", historicalPriceHandler.getHourlyData("ETHEUR",timeWanted));
+      System.out.println(criticalCalculationHandler.getVolatilty("ETHEUR", timeWanted, timeWantedOld, "1 hour"));
 
     }
 }

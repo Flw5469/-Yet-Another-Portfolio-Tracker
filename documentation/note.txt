@@ -11,3 +11,10 @@ accidentally added this into dependency, causing there having extra test case wi
 20/7
 lambda capture by reference
 -> when submitting a lambda to a threadpool, lambda capture the REFERENCE but not executed. so when I submit ()->{array.clone()}, it is not cloned immediately. 
+
+25/7
+went to vacation
+-found out bug again in the price ranged fetch function:
+1. bug when empty
+2. bug when starting is missing
+3. bug in final price length
